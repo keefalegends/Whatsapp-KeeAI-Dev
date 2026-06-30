@@ -5,17 +5,16 @@ const qrcode = require('qrcode-terminal');
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        headless: true,
+        headless: false, // <--- KITA UBAH JADI FALSE BIAR BROWSER-NYA MUNCUL!
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
             '--disable-gpu'
         ]
-    }
+    },
+    // Mengelabui WhatsApp Web agar mengira ini Chrome asli versi desktop biasa
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 });
 
 // 2. Generate QR Code
