@@ -5,20 +5,17 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Inisialisasi Gemini AI secara aman
 const apiKey = process.env.GEMINI_API_KEY;
-let model = null;
+let genAI = null;
+let currentPersonality = 'santai'; // Sifat default bot
+
+const personalities = {
+    santai: 'Kamu adalah KeeAI, bot WhatsApp yang ramah, santai, kocak, dan gaul. Jawab singkat maksimal 2 kalimat menggunakan bahasa santai/lu-gue.',
+    toxic: 'Kamu adalah KeeAI, bot WhatsApp yang toxic, suka nge-roast, sarkastik, ketus, tapi tetap lucu dan menghibur. Jawab singkat maksimal 2 kalimat pakai bahasa gaul dan agak ngegas.',
+    formal: 'Kamu adalah KeeAI, asisten chatbot WhatsApp yang profesional, formal, sopan, dan to the point. Jawab maksimal dalam 2-3 kalimat menggunakan bahasa baku.'
+};
 
 if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    model = genAI.getGenerativeModel({ 
-        model: 'gemini-3.5-flash',
-        generationConfig: {
-            maxOutputTokens: 150,
-            thinkingConfig: {
-                thinkingLevel: 'MINIMAL'
-            }
-        },
-        systemInstruction: 'Kamu adalah KeeAI, bot WhatsApp yang ramah, santai, dan TO THE POINT. Jawab pertanyaan user maksimal dalam 2-3 kalimat saja. Jangan bertele-tele.'
-    });
+    genAI = new GoogleGenerativeAI(apiKey);
 } else {
     console.warn('⚠️ Peringatan: GEMINI_API_KEY belum dikonfigurasi di file .env. Fitur AI tidak akan berfungsi.');
 }
@@ -67,12 +64,31 @@ client.on('message', async (msg) => {
                 `Silahkan pilih perintah berikut:\n` +
                 `1. *!ping* -> Cek status bot\n` +
                 `2. *!info* -> Tentang KeeAI\n` +
-                `3. *!tanya <pertanyaan>* atau *!ai <pertanyaan>* -> Tanya Gemini AI`
+                `3. *!sifat <santai/toxic/formal>* -> Ubah kepribadian bot\n` +
+                `4. *!tanya <pertanyaan>* atau *!ai <pertanyaan>* -> Tanya Gemini AI`
             );
         } 
         else if (pesan === '!info') {
-            await msg.reply('KeeAI adalah asisten chatbot WhatsApp pribadi yang cerdas dan siap membantumu kapan saja!');
+            await msg.reply(`KeeAI adalah asisten chatbot WhatsApp pribadi yang cerdas. Saat ini aku sedang bermode sifat *${currentPersonality}*!`);
         } 
+        else if (pesan.startsWith('!sifat ') || pesan.startsWith('!personality ')) {
+            const tipe = pesan.split(' ')[1];
+            
+            if (!tipe || !personalities[tipe]) {
+                await msg.reply(
+                    `⚠️ Pilihan sifat tidak valid!\n\n` +
+                    `Gunakan perintah: *!sifat <tipe>*\n` +
+                    `Pilihan tipe:\n` +
+                    `- *santai* (Default, ramah & gaul)\n` +
+                    `- *toxic* (Sarkastik, nge-roast & ngegas)\n` +
+                    `- *formal* (Profesional, sopan & baku)`
+                );
+                return;
+            }
+
+            currentPersonality = tipe;
+            await msg.reply(`Sifat KeeAI berhasil diubah menjadi *${tipe}*! Coba tanyakan sesuatu sekarang. 😎`);
+        }
         else if (pesan.startsWith('!tanya ') || pesan.startsWith('!ai ')) {
             const commandLength = pesan.startsWith('!tanya ') ? 7 : 4;
             const pertanyaan = msg.body.slice(commandLength).trim();
@@ -82,12 +98,28 @@ client.on('message', async (msg) => {
                 return;
             }
 
-            if (!model) {
+            if (!genAI) {
                 await msg.reply('⚠️ Fitur AI belum siap! Harap isi `GEMINI_API_KEY` terlebih dahulu di file `.env`.');
                 return;
             }
 
             try {
+                // Tampilkan status "sedang mengetik..." agar interaksi terasa lebih responsif
+                const chat = await msg.getChat();
+                await chat.sendStateTyping();
+
+                // Inisialisasi model secara dinamis dengan sifat saat ini
+                const model = genAI.getGenerativeModel({ 
+                    model: 'gemini-3.5-flash',
+                    generationConfig: {
+                        maxOutputTokens: 150,
+                        thinkingConfig: {
+                            thinkingLevel: 'MINIMAL'
+                        }
+                    },
+                    systemInstruction: personalities[currentPersonality]
+                });
+
                 // Generate respon menggunakan model Gemini 3.5 Flash
                 const response = await model.generateContent(pertanyaan);
                 const replyText = response.response.text();

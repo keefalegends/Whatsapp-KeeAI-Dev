@@ -13,7 +13,8 @@ KeeAI adalah asisten chatbot WhatsApp pribadi yang cerdas dan responsif, dibangu
 
 - `!ping`: Cek konektivitas dan status keaktifan bot.
 - `!menu`: Menampilkan daftar menu dan perintah yang tersedia.
-- `!info`: Penjelasan singkat tentang KeeAI.
+- `!info`: Penjelasan singkat tentang KeeAI beserta sifat yang sedang aktif.
+- `!sifat <santai/toxic/formal>`: Mengubah kepribadian/sifat respon bot secara real-time.
 - `!tanya <pertanyaan>` atau `!ai <pertanyaan>`: Bertanya secara langsung ke Gemini AI.
 
 ## Cara Menjalankan
