@@ -12,9 +12,12 @@ if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
     model = genAI.getGenerativeModel({ 
         model: 'gemini-3.5-flash',
         generationConfig: {
-            maxOutputTokens: 150
+            maxOutputTokens: 150,
+            thinkingConfig: {
+                thinkingLevel: 'MINIMAL'
+            }
         },
-        systemInstruction: 'Kamu adalah bot WhatsApp yang ramah, santai, dan TO THE POINT. Jawab pertanyaan user maksimal dalam 2-3 kalimat saja. Jangan bertele-tele.'
+        systemInstruction: 'Kamu adalah KeeAI, bot WhatsApp yang ramah, santai, dan TO THE POINT. Jawab pertanyaan user maksimal dalam 2-3 kalimat saja. Jangan bertele-tele.'
     });
 } else {
     console.warn('⚠️ Peringatan: GEMINI_API_KEY belum dikonfigurasi di file .env. Fitur AI tidak akan berfungsi.');
