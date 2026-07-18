@@ -1,4 +1,4 @@
-# KeeAI
+# KeeAI - WhatsApp
 
 KeeAI adalah asisten chatbot WhatsApp pribadi yang cerdas dan responsif, dibangun dengan menggunakan Node.js, `whatsapp-web.js`, serta ditenagai oleh **Google Gemini AI**.
 
