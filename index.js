@@ -115,16 +115,33 @@ client.on('message', async (msg) => {
                 const modelName = process.env.ROUTER_MODEL || 'free';
 
                 // Generate respon menggunakan model via OpenAI SDK format ke 9router
-                const response = await openai.chat.completions.create({
+                const messages = [
+                    { role: 'system', content: personalities[currentPersonality] },
+                    { role: 'user', content: pertanyaan }
+                ];
+                let response = await openai.chat.completions.create({
                     model: modelName,
-                    messages: [
-                        { role: 'system', content: personalities[currentPersonality] },
-                        { role: 'user', content: pertanyaan }
-                    ],
-                    max_tokens: 150
+                    messages,
+                    max_tokens: 1024
                 });
 
-                const replyText = response.choices[0].message.content;
+                let replyText = response.choices[0]?.message?.content?.trim() || '';
+
+                // Beberapa model gratis dapat menghabiskan token untuk reasoning tanpa content.
+                // Ulangi sekali dengan budget lebih besar agar bot tidak mengirim balasan kosong.
+                if (!replyText) {
+                    response = await openai.chat.completions.create({
+                        model: modelName,
+                        messages,
+                        max_tokens: 2048
+                    });
+                    replyText = response.choices[0]?.message?.content?.trim() || '';
+                }
+
+                if (!replyText) {
+                    await msg.reply('Maaf bro, AI memberikan respon kosong. Coba tanya lagi ya.');
+                    return;
+                }
                 await msg.reply(replyText);
             } catch (aiError) {
                 console.error('9router API Error:', aiError);
