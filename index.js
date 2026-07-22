@@ -1,11 +1,12 @@
 require('dotenv').config();
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 
-// Inisialisasi Gemini AI secara aman
-const apiKey = process.env.GEMINI_API_KEY;
-let genAI = null;
+// Inisialisasi 9router API (OpenAI Compatible) secara aman
+const apiKey = process.env.ROUTER_API_KEY;
+const baseURL = process.env.ROUTER_BASE_URL || 'http://202.10.47.200:20128/v1';
+let openai = null;
 let currentPersonality = 'santai'; // Sifat default bot
 
 const personalities = {
@@ -14,17 +15,20 @@ const personalities = {
     formal: 'Kamu adalah KeeAI, asisten chatbot WhatsApp yang profesional, formal, sopan, dan to the point. Jawab maksimal dalam 2-3 kalimat menggunakan bahasa baku.'
 };
 
-if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
-    genAI = new GoogleGenerativeAI(apiKey);
+if (apiKey && apiKey !== 'YOUR_API_KEY_HERE') {
+    openai = new OpenAI({
+        apiKey: apiKey,
+        baseURL: baseURL
+    });
 } else {
-    console.warn('⚠️ Peringatan: GEMINI_API_KEY belum dikonfigurasi di file .env. Fitur AI tidak akan berfungsi.');
+    console.warn('⚠️ Peringatan: ROUTER_API_KEY belum dikonfigurasi di file .env. Fitur AI tidak akan berfungsi.');
 }
 
 // 1. Inisialisasi client dengan argumen Puppeteer yang lebih stabil
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        headless: false, // <--- KITA UBAH JADI FALSE BIAR BROWSER-NYA MUNCUL!
+        headless: false, // <--- BROWSER-NYA MUNCUL
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -65,7 +69,7 @@ client.on('message', async (msg) => {
                 `1. *!ping* -> Cek status bot\n` +
                 `2. *!info* -> Tentang KeeAI\n` +
                 `3. *!sifat <santai/toxic/formal>* -> Ubah kepribadian bot\n` +
-                `4. *!tanya <pertanyaan>* atau *!ai <pertanyaan>* -> Tanya Gemini AI`
+                `4. *!tanya <pertanyaan>* atau *!ai <pertanyaan>* -> Tanya AI 9router`
             );
         } 
         else if (pesan === '!info') {
@@ -98,8 +102,8 @@ client.on('message', async (msg) => {
                 return;
             }
 
-            if (!genAI) {
-                await msg.reply('⚠️ Fitur AI belum siap! Harap isi `GEMINI_API_KEY` terlebih dahulu di file `.env`.');
+            if (!openai) {
+                await msg.reply('⚠️ Fitur AI belum siap! Harap isi `ROUTER_API_KEY` terlebih dahulu di file `.env`.');
                 return;
             }
 
@@ -108,38 +112,22 @@ client.on('message', async (msg) => {
                 const chat = await msg.getChat();
                 await chat.sendStateTyping();
 
-                const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+                const modelName = process.env.ROUTER_MODEL || 'free';
 
-                // Tentukan konfigurasi secara dinamis
-                const modelConfig = { 
+                // Generate respon menggunakan model via OpenAI SDK format ke 9router
+                const response = await openai.chat.completions.create({
                     model: modelName,
-                    generationConfig: {
-                        maxOutputTokens: 150
-                    },
-                    systemInstruction: personalities[currentPersonality]
-                };
+                    messages: [
+                        { role: 'system', content: personalities[currentPersonality] },
+                        { role: 'user', content: pertanyaan }
+                    ],
+                    max_tokens: 150
+                });
 
-                // Hanya aktifkan thinkingConfig untuk model Gemini 3.5+ yang mendukung reasoning
-                if (modelName.includes('3.5') || modelName.includes('3.0')) {
-                    modelConfig.generationConfig.thinkingConfig = {
-                        thinkingLevel: 'MINIMAL'
-                    };
-                } else {
-                    // Gemini 2.5 menggunakan thinkingBudget untuk menonaktifkan proses berpikir
-                    modelConfig.generationConfig.thinkingConfig = {
-                        thinkingBudget: 0
-                    };
-                }
-
-                // Inisialisasi model secara dinamis
-                const model = genAI.getGenerativeModel(modelConfig);
-
-                // Generate respon menggunakan model Gemini
-                const response = await model.generateContent(pertanyaan);
-                const replyText = response.response.text();
+                const replyText = response.choices[0].message.content;
                 await msg.reply(replyText);
             } catch (aiError) {
-                console.error('Gemini API Error:', aiError);
+                console.error('9router API Error:', aiError);
                 await msg.reply('Maaf bro, terjadi kesalahan saat menghubungi AI. Coba lagi nanti ya.');
             }
         }
