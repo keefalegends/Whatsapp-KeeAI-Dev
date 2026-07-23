@@ -10,6 +10,7 @@ let openai = null;
 let currentPersonality = 'santai'; // Sifat default bot
 
 async function requestAIResponse({ model, messages, maxTokens }) {
+    console.log(`[AI] Request model=${model}, max_tokens=${maxTokens}`);
     const response = await fetch(`${baseURL.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -25,6 +26,7 @@ async function requestAIResponse({ model, messages, maxTokens }) {
     });
 
     const rawText = await response.text();
+    console.log(`[AI] HTTP ${response.status}, response_length=${rawText.length}`);
 
     if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${rawText}`);
@@ -174,11 +176,13 @@ client.on('message', async (msg) => {
             }
 
             try {
+                console.log(`[WhatsApp] AI command from ${msg.from}: ${msg.body}`);
                 // Tampilkan status "sedang mengetik..." agar interaksi terasa lebih responsif
                 const chat = await msg.getChat();
                 await chat.sendStateTyping();
 
                 const modelName = process.env.ROUTER_MODEL || 'free';
+                console.log(`[AI] Using baseURL=${baseURL}, model=${modelName}`);
 
                 // Generate respon menggunakan model via OpenAI SDK format ke 9router
                 const messages = [
@@ -228,9 +232,13 @@ client.on('message', async (msg) => {
     }
 });
 
-// SOLUSI BUG 2: Menangkap error background agar Node.js tidak force close / stuck
+// Error handler — log error asli agar bisa di-debug
 process.on('unhandledRejection', (reason, p) => {
-    console.log('Terjadi interupsi sistem (browser reload), tapi bot tetap bertahan hidup. Lanjut chat aja.');
+    console.error('[ERROR] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[ERROR] Uncaught Exception:', err);
 });
 
 // Jalankan sistem
