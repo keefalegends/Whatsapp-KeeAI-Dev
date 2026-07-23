@@ -5,7 +5,7 @@ const OpenAI = require('openai');
 
 // Inisialisasi 9router API (OpenAI Compatible) secara aman
 const apiKey = process.env.ROUTER_API_KEY;
-const baseURL = process.env.ROUTER_BASE_URL || 'http://202.10.47.200:20128/v1';
+const baseURL = process.env.ROUTER_BASE_URL || '';
 let openai = null;
 let currentPersonality = 'santai'; // Sifat default bot
 
