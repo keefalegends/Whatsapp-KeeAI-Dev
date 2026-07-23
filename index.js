@@ -177,9 +177,16 @@ client.on('message', async (msg) => {
 
             try {
                 console.log(`[WhatsApp] AI command from ${msg.from}: ${msg.body}`);
-                // Tampilkan status "sedang mengetik..." agar interaksi terasa lebih responsif
-                const chat = await msg.getChat();
-                await chat.sendStateTyping();
+
+                // Typing status is best-effort; continue to AI if WhatsApp Web fails.
+                try {
+                    const chat = await msg.getChat();
+                    if (chat) {
+                        await chat.sendStateTyping();
+                    }
+                } catch (typingErr) {
+                    console.warn('[WhatsApp] Gagal menampilkan status mengetik:', typingErr.message);
+                }
 
                 const modelName = process.env.ROUTER_MODEL || 'free';
                 console.log(`[AI] Using baseURL=${baseURL}, model=${modelName}`);
