@@ -9,6 +9,72 @@ const baseURL = process.env.ROUTER_BASE_URL || 'http://202.10.47.200:20128/v1';
 let openai = null;
 let currentPersonality = 'santai'; // Sifat default bot
 
+async function requestAIResponse({ model, messages, maxTokens }) {
+    const response = await fetch(`${baseURL.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model,
+            messages,
+            max_tokens: maxTokens,
+            stream: false
+        })
+    });
+
+    const rawText = await response.text();
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${rawText}`);
+    }
+
+    const trimmed = rawText.trim();
+
+    // 9router kadang mengembalikan format SSE walaupun stream=false.
+    // Ambil content dari chunk SSE bila itu terjadi.
+    if (trimmed.startsWith('data:')) {
+        const chunks = trimmed
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.startsWith('data:') && line !== 'data: [DONE]');
+
+        let content = '';
+        let finishReason = null;
+
+        for (const chunkLine of chunks) {
+            const payload = chunkLine.slice(5).trim();
+            if (!payload) continue;
+
+            const parsed = JSON.parse(payload);
+            const choice = parsed.choices?.[0];
+            const deltaContent = choice?.delta?.content;
+
+            if (deltaContent) {
+                content += deltaContent;
+            }
+
+            if (choice?.finish_reason) {
+                finishReason = choice.finish_reason;
+            }
+        }
+
+        return {
+            content: content.trim(),
+            finishReason,
+            rawText
+        };
+    }
+
+    const parsed = JSON.parse(trimmed);
+    return {
+        content: parsed.choices?.[0]?.message?.content?.trim() || '',
+        finishReason: parsed.choices?.[0]?.finish_reason || null,
+        rawText
+    };
+}
+
 const personalities = {
     santai: 'Kamu adalah KeeAI, bot WhatsApp yang ramah, santai, kocak, dan gaul. Jawab singkat maksimal 2 kalimat menggunakan bahasa santai/lu-gue.',
     toxic: 'Kamu adalah KeeAI, bot WhatsApp yang toxic, suka nge-roast, sarkastik, ketus, tapi tetap lucu dan menghibur. Jawab singkat maksimal 2 kalimat pakai bahasa gaul dan agak ngegas.',
@@ -119,26 +185,31 @@ client.on('message', async (msg) => {
                     { role: 'system', content: personalities[currentPersonality] },
                     { role: 'user', content: pertanyaan }
                 ];
-                let response = await openai.chat.completions.create({
+                let aiResult = await requestAIResponse({
                     model: modelName,
                     messages,
-                    max_tokens: 1024
+                    maxTokens: 1024
                 });
 
-                let replyText = response.choices[0]?.message?.content?.trim() || '';
+                let replyText = aiResult.content;
 
                 // Beberapa model gratis dapat menghabiskan token untuk reasoning tanpa content.
                 // Ulangi sekali dengan budget lebih besar agar bot tidak mengirim balasan kosong.
                 if (!replyText) {
-                    response = await openai.chat.completions.create({
+                    aiResult = await requestAIResponse({
                         model: modelName,
                         messages,
-                        max_tokens: 2048
+                        maxTokens: 2048
                     });
-                    replyText = response.choices[0]?.message?.content?.trim() || '';
+                    replyText = aiResult.content;
                 }
 
                 if (!replyText) {
+                    console.error('9router returned empty content:', {
+                        model: modelName,
+                        finishReason: aiResult.finishReason,
+                        preview: aiResult.rawText.slice(0, 500)
+                    });
                     await msg.reply('Maaf bro, AI memberikan respon kosong. Coba tanya lagi ya.');
                     return;
                 }
